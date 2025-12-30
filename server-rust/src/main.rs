@@ -25,6 +25,7 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!(">>> RUST BACKEND STARTING...");
     dotenv().ok();
     
     tracing_subscriber::registry()
@@ -33,6 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    println!(">>> Logger initialized.");
 
     let mongo_uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set");
     let mysql_user = env::var("DB_USER").unwrap_or_else(|_| "wowuser".to_string());
