@@ -101,10 +101,11 @@ services:
       - AC_LOGIN_DATABASE_INFO=ac-database;3306;root;password;acore_auth
     volumes:
       - ./data/azerothcore/etc:/azerothcore/env/dist/etc
-      # Map data folders. User must download these or we use a tool to get them.
       - ./data/azerothcore/data:/azerothcore/env/dist/data
     networks:
       - wow-network
+    ports:
+      - "8085:8085"
 
   ac-authserver:
     image: acore/ac-wotlk-authserver:master
@@ -118,6 +119,8 @@ services:
       - ./data/azerothcore/etc:/azerothcore/env/dist/etc
     networks:
       - wow-network
+    ports:
+      - "3724:3724"
 
   # Importador de Banco de Dados (Necessário para o primeiro setup)
   ac-db-import:
@@ -132,31 +135,6 @@ services:
       - ac-database
     networks:
       - wow-network
-      - ./data/azerothcore/data:/azerothcore/env/dist/data
-      - ./data/azerothcore/logs:/azerothcore/env/dist/logs
-    environment:
-      - AC_ELUNA=1 # Enable Eluna Lua Engine if needed
-    networks:
-      - wow-network
-    ports:
-      - "8085:8085" # World Port
-
-  ac-authserver:
-    image: azerothcore/azerothcore-wotlk:latest
-    container_name: ac-authserver
-    restart: unless-stopped
-    stdin_open: true
-    tty: true
-    depends_on:
-      - ac-database
-    volumes:
-      - ./data/azerothcore/etc:/azerothcore/env/dist/etc
-      - ./data/azerothcore/logs:/azerothcore/env/dist/logs
-    command: ./authserver
-    networks:
-      - wow-network
-    ports:
-      - "3724:3724" # Auth Port
 
 networks:
   wow-network:
