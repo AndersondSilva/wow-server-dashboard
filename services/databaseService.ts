@@ -19,10 +19,10 @@ const classIdToName = (id: number): Character['class'] => {
 };
 
 const users: User[] = [
-    { id: 'u1', name: 'Alex', avatarUrl: 'https://picsum.photos/seed/user1/100', discordHandle: 'Alex#1234' },
-    { id: 'u2', name: 'Brianna', avatarUrl: 'https://picsum.photos/seed/user2/100', discordHandle: 'Brianna#5678' },
-    { id: 'u3', name: 'Chris', avatarUrl: 'https://picsum.photos/seed/user3/100', discordHandle: 'Chris#9012' },
-    { id: 'u4', name: 'Diana', avatarUrl: 'https://picsum.photos/seed/user4/100', discordHandle: 'Diana#3456' },
+    { id: 'u1', name: 'Alex Johnson', nickname: 'Grom', firstName: 'Alex', lastName: 'Johnson', avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=WarriorMale1&size=64', discordHandle: 'Alex#1234' },
+    { id: 'u2', name: 'Brianna Smith', nickname: 'Arcana', firstName: 'Brianna', lastName: 'Smith', avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=MageFemale1&size=64', discordHandle: 'Brianna#5678' },
+    { id: 'u3', name: 'Chris Lee', nickname: 'Shadow', firstName: 'Chris', lastName: 'Lee', avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=RogueMale1&size=64', discordHandle: 'Chris#9012' },
+    { id: 'u4', name: 'Diana Perez', nickname: 'Leafsong', firstName: 'Diana', lastName: 'Perez', avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=DruidFemale1&size=64', discordHandle: 'Diana#3456' },
 ];
 
 // FIX: Separated array creation and sorting to ensure correct type inference for the 'class' property.
@@ -59,16 +59,20 @@ export const getTopCharacters = (count = 10): Promise<Character[]> => {
                     const level = Number(r.level) || 1;
                     const clsId = Number(r.class);
                     const clsName = typeof r.class === 'string' ? (r.class as Character['class']) : classIdToName(clsId);
+                    const name = String(r.name);
+                    const uploadedImage = r.imageUrl ? `${API_URL}${String(r.imageUrl)}` : undefined;
                     return {
-                        id: `api-${r.name}-${idx}`,
+                        id: `api-${name}-${idx}`,
                         userId: 'api',
-                        name: String(r.name),
+                        name,
+                        guild: r.guildName || undefined,
+                        guildLogoUrl: r.guildLogoUrl || undefined,
                         class: clsName,
                         level,
                         currentXp: 0,
                         xpToNextLevel: 1,
                         gameProgress: Math.max(0, Math.min(100, Math.round((level / 60) * 100))),
-                        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(String(r.name))}/400/600`,
+                        imageUrl: uploadedImage || `https://picsum.photos/seed/${encodeURIComponent(name)}/400/600`,
                     };
                 });
                 return mapped;
@@ -94,6 +98,30 @@ export const getAllUsers = (): Promise<User[]> => {
             resolve(users);
         }, MOCK_API_DELAY);
     });
+};
+
+export type RecentSiteUser = { id: string; name: string; nickname?: string; avatarUrl?: string };
+
+export const listRecentSiteUsers = (): Promise<RecentSiteUser[]> => {
+    if (API_URL) {
+        return fetch(`${API_URL}/api/users/recent`).then(async (res) => {
+            if (!res.ok) throw new Error('API recent users request failed');
+            return res.json();
+        }).catch(() => Promise.resolve([]));
+    }
+    return Promise.resolve([]);
+};
+
+export type OnlinePlayer = { name: string; class: number | string; level: number };
+
+export const listOnlinePlayers = (): Promise<OnlinePlayer[]> => {
+    if (API_URL) {
+        return fetch(`${API_URL}/api/players/online`).then(async (res) => {
+            if (!res.ok) throw new Error('API online players request failed');
+            return res.json();
+        }).catch(() => Promise.resolve([]));
+    }
+    return Promise.resolve([]);
 };
 
 export const getNews = (): Promise<NewsPost[]> => {

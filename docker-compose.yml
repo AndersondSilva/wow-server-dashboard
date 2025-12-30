@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # REVERSE PROXY (Nginx Proxy Manager)
+  # ---------------------------------------------------------------------------
+  npm:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81' # Admin Interface
+      - '443:443'
+    volumes:
+      - ./data/npm/data:/data
+      - ./data/npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - wow-network
+
+  # ---------------------------------------------------------------------------
+  # DASHBOARD FRONTEND (React)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: wow-dashboard-frontend
+    restart: unless-stopped
+    networks:
+      - wow-network
+    depends_on:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # DASHBOARD BACKEND (Rust)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./server-rust
+      dockerfile: Dockerfile
+    container_name: wow-dashboard-backend
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - PORT=3000
+      - DATABASE_URL=mysql://acore:acore@ac-database:3306/acore_auth
+      - MONGODB_URI=mongodb://mongo:27017/wow-dashboard
+      - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_prod}
+      # Google Auth ID from .env
+      - GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+    networks:
+      - wow-network
+    depends_on:
+      - mongo
+      - ac-database
+
+  # ---------------------------------------------------------------------------
+  # DATABASES
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: mongo:6
+    container_name: wow-mongo
+    restart: unless-stopped
+    volumes:
+      - ./data/mongo:/data/db
+    networks:
+      - wow-network
+
+  # AzerothCore Database
+  ac-database:
+    image: mysql:8.0
+    container_name: ac-database
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_USER=acore
+      - MYSQL_PASSWORD=acore
+      - MYSQL_DATABASE=acore_world
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    networks:
+      - wow-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # ---------------------------------------------------------------------------
+  # AZEROTHCORE WOW SERVER
+  # ---------------------------------------------------------------------------
+  ac-worldserver:
+    image: azerothcore/azerothcore-wotlk:latest
+    container_name: ac-worldserver
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    depends_on:
+      - ac-database
+      - ac-authserver
+    volumes:
+      - ./data/azerothcore/etc:/azerothcore/env/dist/etc
+      # Map data folders. User must download these or we use a tool to get them.
+      - ./data/azerothcore/data:/azerothcore/env/dist/data
+      - ./data/azerothcore/logs:/azerothcore/env/dist/logs
+    environment:
+      - AC_ELUNA=1 # Enable Eluna Lua Engine if needed
+    networks:
+      - wow-network
+    ports:
+      - "8085:8085" # World Port
+
+  ac-authserver:
+    image: azerothcore/azerothcore-wotlk:latest
+    container_name: ac-authserver
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    depends_on:
+      - ac-database
+    volumes:
+      - ./data/azerothcore/etc:/azerothcore/env/dist/etc
+      - ./data/azerothcore/logs:/azerothcore/env/dist/logs
+    command: ./authserver
+    networks:
+      - wow-network
+    ports:
+      - "3724:3724" # Auth Port
+
+networks:
+  wow-network:
+    driver: bridge

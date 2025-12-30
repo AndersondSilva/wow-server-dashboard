@@ -1,0 +1,13 @@
+{
+  "threads": [
+    {
+      "id": "policy",
+      "title": "Política de Bom Comportamento",
+      "content": "Mantenha a comunidade acolhedora e respeitosa. Ao participar do fórum e do chat, siga estas diretrizes:\n\n• Respeite todos os membros; nada de ofensas, assédio ou discriminação.\n• Evite spam, flood e conteúdo fora de tópico.\n• Não compartilhe conteúdo ilegal, sexualmente explícito ou de ódio.\n• Use linguagem apropriada e mantenha discussões construtivas.\n• Marque spoilers e evite revelar conteúdo sem aviso.\n• Denuncie comportamentos inadequados aos moderadores.\n\nImportante: O descumprimento desta política poderá resultar em sanções, incluindo banimento do servidor.",
+      "authorId": "admin",
+      "authorName": "Admin",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "replies": []
+    }
+  ]
+}

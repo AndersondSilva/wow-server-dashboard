@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Wand, Sword, Cross, PawPrint, Crosshair, Skull, Hammer, Zap } from 'lucide-react';
 import { getUserById } from '../services/databaseService';
@@ -25,6 +25,7 @@ const cardVariants = {
 const CharacterCard: React.FC<{ character: Character; rank: number }> = ({ character, rank }) => {
   const user = getUserById(character.userId);
   const xpPercentage = (character.currentXp / character.xpToNextLevel) * 100;
+  const [imgSrc, setImgSrc] = useState<string>(character.imageUrl);
 
   return (
     <motion.div
@@ -33,13 +34,30 @@ const CharacterCard: React.FC<{ character: Character; rank: number }> = ({ chara
       className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-black/30 overflow-hidden group"
     >
       <div className="relative">
-        <img src={character.imageUrl} alt={character.name} className="w-full h-64 object-cover" />
+        <img
+          src={imgSrc}
+          alt={character.name}
+          className="w-full h-64 object-cover"
+          onError={() => setImgSrc(`https://picsum.photos/seed/${encodeURIComponent(character.name)}/400/600`)}
+        />
         <div className="absolute top-0 left-0 bg-brand-primary text-brand-secondary font-bold text-2xl px-4 py-2 rounded-br-2xl">
           #{rank}
         </div>
         <div className="absolute bottom-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent">
           <h3 className="text-2xl font-bold text-white tracking-wide">{character.name}</h3>
-          <p className="text-sm text-gray-300">{user?.name || 'Unknown User'}</p>
+          {character.guild ? (
+            <p className="text-xs text-gray-300 flex items-center gap-2">
+              {character.guildLogoUrl && (
+                <img src={character.guildLogoUrl} alt="Logo da Guilda" className="w-4 h-4 rounded-sm" />
+              )}
+              <span>
+                Guilda "{character.guild}"
+              </span>
+            </p>
+          ) : (
+            <p className="text-xs text-gray-300">Sem Guilda</p>
+          )}
+          <p className="text-sm text-gray-300">Nickname: {user?.nickname || 'Sem nickname'}</p>
         </div>
       </div>
 
@@ -64,7 +82,7 @@ const CharacterCard: React.FC<{ character: Character; rank: number }> = ({ chara
 
         <div>
             <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                <span>Progresso Total</span>
+                <span>Progresso do Jogo</span>
                 <span>{character.gameProgress}%</span>
             </div>
              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">

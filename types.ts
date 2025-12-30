@@ -2,6 +2,9 @@
 export interface User {
   id: string;
   name: string;
+  nickname?: string;
+  firstName?: string;
+  lastName?: string;
   avatarUrl: string;
   discordHandle: string;
 }
@@ -10,6 +13,8 @@ export interface Character {
   id: string;
   userId: string;
   name: string;
+  guild?: string;
+  guildLogoUrl?: string;
   class: 'Warrior' | 'Mage' | 'Rogue' | 'Priest' | 'Druid' | 'Hunter' | 'Warlock' | 'Paladin' | 'Shaman';
   level: number;
   currentXp: number;

@@ -51,11 +51,11 @@ Crie um arquivo de site:
 ```bash
 sudo nano /etc/nginx/sites-available/wow-dashboard
 ```
-Conteúdo (ajuste domínio ou use IP):
+Conteúdo (ajuste domínio ou use IP). Exemplo já configurando `aethelgard.pt`:
 ```
 server {
     listen 80;
-    server_name <seu-dominio-ou-ip>;
+    server_name aethelgard.pt www.aethelgard.pt;
 
     root /opt/wow-server-dashboard/dist;
     index index.html;
@@ -124,13 +124,27 @@ sudo ufw allow 7878/tcp
 ## 5) HTTPS (opcional, recomendado)
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d <seu-dominio>
+sudo certbot --nginx -d aethelgard.pt -d www.aethelgard.pt
+```
+Adicione redirecionamento 80 → 443 para forçar HTTPS:
+```
+server {
+    listen 80;
+    server_name aethelgard.pt www.aethelgard.pt;
+    return 301 https://$host$request_uri;
+}
+```
+
+Renovação automática do SSL (via systemd timer do Certbot):
+```bash
+systemctl status certbot.timer
+sudo systemctl enable certbot.timer
 ```
 
 ## 6) Frontend consumindo API
-No arquivo `.env.local` do frontend, defina:
+No arquivo `.env.local` do frontend (ou variável de ambiente no build), defina:
 ```
-VITE_API_URL=http://<seu-dominio-ou-ip>
+VITE_API_URL=https://www.aethelgard.pt
 ```
 Atualize os serviços do frontend para usar endpoints:
 - `GET /api/ranking/top?limit=10`
@@ -158,7 +172,49 @@ Integre um endpoint admin (ex.: broadcast) na API com autenticação.
 - Atualizações: pull e `npm run build`, reinicie o serviço da API.
 - Segurança: nunca exponha o MySQL diretamente; mantenha o backend no mesmo host.
 
+### Script simples de atualização
+Crie um script para atualizar e publicar rapidamente:
+```bash
+sudo nano /opt/wow-server-dashboard/deploy.sh
+```
+Conteúdo:
+```bash
+#!/usr/bin/env bash
+set -e
+cd /opt/wow-server-dashboard
+git pull --ff-only
+npm ci
+npm run build
+sudo systemctl restart wow-api
+sudo systemctl reload nginx
+echo "Deploy concluído em $(date)"
+```
+Permissão de execução:
+```bash
+sudo chmod +x /opt/wow-server-dashboard/deploy.sh
+```
+
+---
+
+## Imagens reais dos personagens no Ranking
+Para obter imagens reais dos seus personagens (em vez de fotos genéricas), você tem algumas opções:
+
+- Upload manual de screenshots pelo jogador:
+  - Adicione um endpoint de upload (ex.: `POST /api/characters/:name/image`) usando `multer` no backend.
+  - Salve os arquivos em `/opt/wow-server-dashboard/server/uploads/characters/` com nome padronizado (ex.: `Thrall.jpg`).
+  - No `getTopCharacters`, construa `imageUrl` apontando para `https://www.aethelgard.pt/api/uploads/characters/<Name>.jpg` quando existir; faça fallback para imagem genérica quando não existir.
+  - Vantagem: imagens realmente do seu servidor, sem depender de serviços externos.
+
+- Integração com Armory/Web (AzerothCore/Trinity):
+  - Muitas soluções de "Armory" exibem avatares, ícones e estatísticas. Integre uma rota de leitura dessas imagens, se disponíveis.
+  - Observação: normalmente não há render 3D oficial do personagem em servidores privados; pode ser necessário screenshot manual.
+
+- Render offline (WoW Model Viewer):
+  - Gere imagens no WMV/ModelViewer com o set de itens do personagem e exporte para `.png`.
+  - Faça upload seguindo o padrão de arquivos acima para aparecer no Ranking.
+
+Se quiser, posso implementar rapidamente o fluxo de upload no backend (com `multer`) e ajustar o frontend para mostrar a imagem enviada quando disponível.
+
 ---
 
 Se quiser, posso adaptar o backend para seu core específico (queries e colunas) e já atualizar o frontend para consumir `/api/` automaticamente.
-
