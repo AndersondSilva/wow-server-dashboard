@@ -47,6 +47,12 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_prod}
       # Google Auth ID from .env
       - GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+      # MySQL Connection Info
+      - DB_USER=acore
+      - DB_PASS=acore
+      - DB_HOST=ac-database
+      - DB_AUTH=acore_auth
+      - DB_CHAR=acore_characters
     networks:
       - wow-network
     depends_on:
