@@ -1,25 +1,25 @@
-# Stage 1: Chef (optimizes dependency caching)
-FROM rust:1.83 as chef
+# Stage 1: Builder
+FROM rust:1.83 as builder
 WORKDIR /app
-RUN cargo install cargo-chef --version 0.1.68
 
-# Stage 2: Planner
-FROM chef as planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+# Copy manifest and lock file to cache dependencies
+COPY Cargo.toml Cargo.lock ./
 
-# Stage 3: Builder
-FROM chef as builder
-COPY --from=planner /app/recipe.json recipe.json
-# Build dependencies - this is the cached layer
-RUN cargo chef cook --release --recipe-path recipe.json
-# Build application
+# Create a dummy main.rs to build dependencies only
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release
+RUN rm -rf src
+
+# Copy the actual source code
 COPY . .
+
+# Build the application
 RUN cargo build --release --bin wow-dashboard-backend
 
-# Stage 4: Runtime
+# Stage 2: Runtime
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
+
 # Install OpenSSL and CA certificates (needed for reqwest/Google Login)
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
