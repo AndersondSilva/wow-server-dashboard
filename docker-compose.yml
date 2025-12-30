@@ -87,7 +87,7 @@ services:
   # AZEROTHCORE WOW SERVER
   # ---------------------------------------------------------------------------
   ac-worldserver:
-    image: azerothcore/azerothcore-wotlk:latest
+    image: acore/ac-wotlk-worldserver:master
     container_name: ac-worldserver
     restart: unless-stopped
     stdin_open: true
@@ -95,9 +95,43 @@ services:
     depends_on:
       - ac-database
       - ac-authserver
+    environment:
+      - AC_WORLD_DATABASE_INFO=ac-database;3306;root;password;acore_world
+      - AC_CHARACTER_DATABASE_INFO=ac-database;3306;root;password;acore_characters
+      - AC_LOGIN_DATABASE_INFO=ac-database;3306;root;password;acore_auth
     volumes:
       - ./data/azerothcore/etc:/azerothcore/env/dist/etc
       # Map data folders. User must download these or we use a tool to get them.
+      - ./data/azerothcore/data:/azerothcore/env/dist/data
+    networks:
+      - wow-network
+
+  ac-authserver:
+    image: acore/ac-wotlk-authserver:master
+    container_name: ac-authserver
+    restart: unless-stopped
+    depends_on:
+      - ac-database
+    environment:
+      - AC_LOGIN_DATABASE_INFO=ac-database;3306;root;password;acore_auth
+    volumes:
+      - ./data/azerothcore/etc:/azerothcore/env/dist/etc
+    networks:
+      - wow-network
+
+  # Importador de Banco de Dados (Necessário para o primeiro setup)
+  ac-db-import:
+    image: acore/ac-wotlk-db-import:master
+    container_name: ac-db-import
+    restart: no
+    environment:
+      - AC_LOGIN_DATABASE_INFO=ac-database;3306;root;password;acore_auth
+      - AC_WORLD_DATABASE_INFO=ac-database;3306;root;password;acore_world
+      - AC_CHARACTER_DATABASE_INFO=ac-database;3306;root;password;acore_characters
+    depends_on:
+      - ac-database
+    networks:
+      - wow-network
       - ./data/azerothcore/data:/azerothcore/env/dist/data
       - ./data/azerothcore/logs:/azerothcore/env/dist/logs
     environment:
