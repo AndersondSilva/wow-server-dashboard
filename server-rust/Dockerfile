@@ -1,7 +1,7 @@
 # Stage 1: Chef (optimizes dependency caching)
 FROM rust:1.83 as chef
 WORKDIR /app
-RUN cargo install cargo-chef
+RUN cargo install cargo-chef --version 0.1.68
 
 # Stage 2: Planner
 FROM chef as planner
