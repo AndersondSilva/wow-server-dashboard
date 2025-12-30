@@ -14,9 +14,20 @@ mkdir -p $DATA_DIR
 # Função para baixar e extrair
 download_and_extract() {
     FILE=$1
-    URL="https://github.com/wowgaming/client-data/releases/download/$VERSION/$FILE"
+    # URL="https://github.com/wowgaming/client-data/releases/download/$VERSION/$FILE"
+    # Correção: O repositório wowgaming/client-data usa 'v16' na tag mas os arquivos podem estar com nomes diferentes ou em outra tag.
+    # Vamos usar um mirror confiável ou a estrutura correta se a tag v16 falhar.
+    # Na verdade, o erro 404 indica que o arquivo não existe nessa release específica com esse nome.
+    # Tentando link direto da release v16 que sabemos que existe:
+    URL="https://github.com/wowgaming/client-data/releases/download/v16/$FILE"
     
-    echo ">>> Baixando $FILE..."
+    # Se falhar, tentar v15 como fallback
+    if ! curl --output /dev/null --silent --head --fail "$URL"; then
+        echo ">>> Versão v16 não encontrada para $FILE, tentando v15..."
+        URL="https://github.com/wowgaming/client-data/releases/download/v15/$FILE"
+    fi
+
+    echo ">>> Baixando $FILE de $URL..."
     # Usando -L para seguir redirects e -f para falhar em erros HTTP (404, etc)
     if curl -L -f -o "$DATA_DIR/$FILE" "$URL"; then
         echo ">>> Extraindo $FILE..."
