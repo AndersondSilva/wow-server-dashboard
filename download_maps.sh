@@ -17,13 +17,20 @@ download_and_extract() {
     URL="https://github.com/wowgaming/client-data/releases/download/$VERSION/$FILE"
     
     echo ">>> Baixando $FILE..."
-    if curl -L -o "$DATA_DIR/$FILE" "$URL"; then
+    # Usando -L para seguir redirects e -f para falhar em erros HTTP (404, etc)
+    if curl -L -f -o "$DATA_DIR/$FILE" "$URL"; then
         echo ">>> Extraindo $FILE..."
-        unzip -o -q "$DATA_DIR/$FILE" -d "$DATA_DIR"
-        rm "$DATA_DIR/$FILE"
-        echo ">>> $FILE instalado com sucesso."
+        # Verifica se o arquivo baixado é um zip válido antes de tentar extrair
+        if unzip -t "$DATA_DIR/$FILE" > /dev/null 2>&1; then
+            unzip -o -q "$DATA_DIR/$FILE" -d "$DATA_DIR"
+            rm "$DATA_DIR/$FILE"
+            echo ">>> $FILE instalado com sucesso."
+        else
+            echo "ERROR: O arquivo baixado $FILE não é um ZIP válido. O link pode estar quebrado ou o download falhou."
+            rm "$DATA_DIR/$FILE"
+        fi
     else
-        echo "ERROR: Falha ao baixar $FILE. Verifique sua conexão."
+        echo "ERROR: Falha ao baixar $FILE. URL: $URL"
     fi
 }
 
