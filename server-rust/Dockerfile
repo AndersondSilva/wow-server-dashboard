@@ -1,9 +1,9 @@
 # Stage 1: Builder
-FROM rust:1.83 as builder
+FROM rust:1.83 AS builder
 WORKDIR /app
 
-# Copy manifest and lock file to cache dependencies
-COPY Cargo.toml Cargo.lock ./
+# Copy manifest to cache dependencies
+COPY Cargo.toml ./
 
 # Create a dummy main.rs to build dependencies only
 RUN mkdir src && echo "fn main() {}" > src/main.rs
