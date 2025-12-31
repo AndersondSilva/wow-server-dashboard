@@ -44,14 +44,13 @@ services:
     environment:
       - RUST_LOG=info
       - PORT=3000
-      - DATABASE_URL=mysql://acore:acore@ac-database:3306/acore_auth
       - MONGODB_URI=mongodb://mongo:27017/wow-dashboard
       - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_prod}
       # Google Auth ID from .env
       - GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
-      # MySQL Connection Info
-      - DB_USER=acore
-      - DB_PASS=acore
+      # MySQL Connection Info (Using root to ensure access to all DBs)
+      - DB_USER=root
+      - DB_PASS=password
       - DB_HOST=ac-database
       - DB_AUTH=acore_auth
       - DB_CHAR=acore_characters
