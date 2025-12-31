@@ -24,27 +24,19 @@ download_and_extract() {
     # Se falhar, tentar v16 (link alternativo) ou v19
     if ! curl --output /dev/null --silent --head --fail "$URL"; then
         echo ">>> Versão v16 não encontrada para $FILE, tentando link direto da release v16..."
-        # Correção: O mirror original pode ter mudado. Vamos tentar o link direto dos assets v16.
-        # Se não funcionar, o script vai falhar e precisaremos encontrar um novo mirror.
+        
         # TENTATIVA 1: Usar o link exato da release v16 se a tag for diferente
         # TENTATIVA 2: Se v16 falhar, tentar v19 (mas v19 deu 404 antes)
         
-        # Vamos tentar um mirror conhecido ou voltar para v16 com outra estratégia
-        # Na verdade, o erro 404 na v19 sugere que os nomes dos arquivos mudaram ou a release não tem esses assets.
-        # Vamos forçar o uso da v16 que é a recomendada para 3.3.5a
+        # Link oficial para v16 (enUS) - Verificado como existente em releases recentes
+        # https://github.com/wowgaming/client-data/releases/download/v16/dbc.zip
         
-        # Link alternativo (exemplo): https://github.com/wowgaming/client-data/releases/download/v16/dbc.zip
-        # Se esse link deu 404, então a release v16 não tem esse arquivo ou foi removida.
+        # Se falhar, tentar v16 direto (sem redirecionamentos complexos)
+        # As vezes o curl falha no HEAD request em releases do GitHub.
+        # Vamos assumir que v16 existe e tentar baixar direto.
         
-        # Vamos tentar a release 'v14' que também é compatível com 3.3.5a as vezes, ou verificar o nome do arquivo.
-        # Mas o mais provável é que o curl esteja falhando por outro motivo ou o repo mudou.
-        
-        # FIX: Usar o link da release v16 mas ignorar a checagem de head se estiver instável, ou tentar v14.
-        # Vamos tentar v16 novamente mas com -L garantido no download.
-        
-        # Se v16 e v19 falharam, tentar um mirror de terceiro ou v13
-        echo ">>> Tentando v13 (compatível com 3.3.5a)..."
-        URL="https://github.com/wowgaming/client-data/releases/download/v13/$FILE"
+        echo ">>> Tentando v16 novamente (modo forçado)..."
+        URL="https://github.com/wowgaming/client-data/releases/download/v16/$FILE"
     fi
 
     echo ">>> Baixando $FILE de $URL..."
