@@ -3,67 +3,58 @@
 # Script para baixar os mapas do AzerothCore (WoW 3.3.5a)
 # Fonte: https://github.com/wowgaming/client-data/releases
 
-DATA_DIR="./data/azerothcore/data"
-VERSION="v16" # Versão estável dos dados
+# Versão do Client Data a ser baixada (v19 é a recomendada atualmente para AC)
+VERSION="v19"
+# Nome do arquivo único que contém tudo (conforme documentação recente)
+FILE="data.zip"
 
 echo ">>> Iniciando download dos mapas (Versão $VERSION)..."
-echo ">>> Destino: $DATA_DIR"
 
-mkdir -p $DATA_DIR
+# Criar diretório data se não existir
+if [ ! -d "data" ]; then
+    mkdir -p data
+fi
 
-# Função para baixar e extrair
-download_and_extract() {
-    FILE=$1
-    # URL="https://github.com/wowgaming/client-data/releases/download/$VERSION/$FILE"
-    # Correção: O repositório wowgaming/client-data usa 'v16' na tag mas os arquivos podem estar com nomes diferentes ou em outra tag.
-    # Vamos usar um mirror confiável ou a estrutura correta se a tag v16 falhar.
-    # Na verdade, o erro 404 indica que o arquivo não existe nessa release específica com esse nome.
-    # Tentando link direto da release v16 que sabemos que existe:
-    URL="https://github.com/wowgaming/client-data/releases/download/v16/$FILE"
+cd data
+
+# URL de download
+URL="https://github.com/wowgaming/client-data/releases/download/$VERSION/$FILE"
+
+echo ">>> Baixando $FILE de $URL..."
+
+# Baixar o arquivo
+if curl -L -O --fail "$URL"; then
+    echo ">>> Download concluído com sucesso!"
     
-    # Se falhar, tentar v16 (link alternativo) ou v19
-    if ! curl --output /dev/null --silent --head --fail "$URL"; then
-        echo ">>> Versão v16 não encontrada para $FILE, tentando link direto da release v16..."
-        
-        # TENTATIVA 1: Usar o link exato da release v16 se a tag for diferente
-        # TENTATIVA 2: Se v16 falhar, tentar v19 (mas v19 deu 404 antes)
-        
-        # Link oficial para v16 (enUS) - Verificado como existente em releases recentes
-        # https://github.com/wowgaming/client-data/releases/download/v16/dbc.zip
-        
-        # Se falhar, tentar v16 direto (sem redirecionamentos complexos)
-        # As vezes o curl falha no HEAD request em releases do GitHub.
-        # Vamos assumir que v16 existe e tentar baixar direto.
-        
-        echo ">>> Tentando v16 novamente (modo forçado)..."
-        URL="https://github.com/wowgaming/client-data/releases/download/v16/$FILE"
-    fi
-
-    echo ">>> Baixando $FILE de $URL..."
-    # Usando -L para seguir redirects e -f para falhar em erros HTTP (404, etc)
-    if curl -L -f -o "$DATA_DIR/$FILE" "$URL"; then
-        echo ">>> Extraindo $FILE..."
-        # Verifica se o arquivo baixado é um zip válido antes de tentar extrair
-        if unzip -t "$DATA_DIR/$FILE" > /dev/null 2>&1; then
-            unzip -o -q "$DATA_DIR/$FILE" -d "$DATA_DIR"
-            rm "$DATA_DIR/$FILE"
-            echo ">>> $FILE instalado com sucesso."
-        else
-            echo "ERROR: O arquivo baixado $FILE não é um ZIP válido (possivelmente 404 ou corrompido)."
-            echo "Verifique sua conexão ou a URL: $URL"
-            rm "$DATA_DIR/$FILE"
-        fi
+    echo ">>> Extraindo arquivos..."
+    # Tentar unzip primeiro
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -o $FILE
+    elif command -v 7z >/dev/null 2>&1; then
+        7z x -y $FILE
     else
-        echo "ERROR: Falha ao baixar $FILE. URL: $URL"
+        echo ">>> ERRO: Nem 'unzip' nem '7z' encontrados. Por favor instale um deles (sudo apt install unzip ou sudo apt install p7zip-full)."
+        exit 1
     fi
-}
+    
+    # Remover o zip após extração
+    rm $FILE
+    
+    echo ">>> Extração concluída!"
+    
+    # Verificar se as pastas foram criadas corretamente
+    if [ -d "dbc" ] && [ -d "maps" ] && [ -d "vmaps" ] && [ -d "mmaps" ]; then
+        echo ">>> Verificação: Todas as pastas (dbc, maps, vmaps, mmaps) estão presentes."
+    else
+        echo ">>> AVISO: Algumas pastas podem estar faltando. Verifique o conteúdo extraído."
+        ls -F
+    fi
+    
+else
+    echo ">>> ERRO: Falha ao baixar $FILE da versão $VERSION."
+    echo ">>> URL tentada: $URL"
+    echo ">>> Verifique sua conexão ou se a versão ainda existe."
+    exit 1
+fi
 
-# Baixar arquivos essenciais
-download_and_extract "dbc.zip"
-download_and_extract "maps.zip"
-download_and_extract "vmaps.zip"
-download_and_extract "mmaps.zip"
-# download_and_extract "cameras.zip" # Opcional
-
-echo ">>> Download concluído! Verifique se os arquivos estão em $DATA_DIR"
-echo ">>> Agora reinicie o servidor: docker compose restart ac-worldserver"
+cd ..
