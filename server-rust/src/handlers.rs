@@ -337,12 +337,13 @@ pub async fn me(
         Ok(Some(user)) => Json(UserResponse {
             id: user.id.unwrap().to_hex(),
             name: user.nickname.clone(),
-            nickname: user.nickname,
+            nickname: user.nickname.clone(),
             email: user.email,
             first_name: Some(user.first_name),
             last_name: Some(user.last_name),
             avatar_url: None,
             is_admin: user.role == "admin",
+            game_id: user.game_id,
         }).into_response(),
         _ => (StatusCode::NOT_FOUND, "User not found").into_response(),
     }

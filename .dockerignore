@@ -1,9 +1,0 @@
-node_modules
-dist
-target
-.git
-.env
-data
-coverage
-.DS_Store
-*.log
