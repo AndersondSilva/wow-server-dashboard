@@ -145,12 +145,13 @@ pub async fn login(
         user: UserResponse {
             id: user.id.unwrap().to_hex(),
             name: user.nickname.clone(),
-            nickname: user.nickname,
+            nickname: user.nickname.clone(),
             email: user.email,
             first_name: Some(user.first_name),
             last_name: Some(user.last_name),
             avatar_url: None,
             is_admin: user.role == "admin",
+            game_id: user.game_id,
         },
     }).into_response()
 }
@@ -298,12 +299,13 @@ pub async fn login_google(
         user: UserResponse {
             id: user.id.unwrap().to_hex(),
             name: user.nickname.clone(),
-            nickname: user.nickname,
+            nickname: user.nickname.clone(),
             email: user.email,
             first_name: Some(user.first_name),
             last_name: Some(user.last_name),
             avatar_url: google_user.picture,
             is_admin: user.role == "admin",
+            game_id: user.game_id,
         },
     }).into_response()
 }
