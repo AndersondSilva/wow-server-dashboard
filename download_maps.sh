@@ -21,10 +21,10 @@ download_and_extract() {
     # Tentando link direto da release v16 que sabemos que existe:
     URL="https://github.com/wowgaming/client-data/releases/download/v16/$FILE"
     
-    # Se falhar, tentar v15 como fallback
+    # Se falhar, tentar v16 (link alternativo) ou v19
     if ! curl --output /dev/null --silent --head --fail "$URL"; then
-        echo ">>> Versão v16 não encontrada para $FILE, tentando v15..."
-        URL="https://github.com/wowgaming/client-data/releases/download/v15/$FILE"
+        echo ">>> Versão v16 não encontrada para $FILE, tentando v19..."
+        URL="https://github.com/wowgaming/client-data/releases/download/v19/$FILE"
     fi
 
     echo ">>> Baixando $FILE de $URL..."
@@ -37,7 +37,8 @@ download_and_extract() {
             rm "$DATA_DIR/$FILE"
             echo ">>> $FILE instalado com sucesso."
         else
-            echo "ERROR: O arquivo baixado $FILE não é um ZIP válido. O link pode estar quebrado ou o download falhou."
+            echo "ERROR: O arquivo baixado $FILE não é um ZIP válido (possivelmente 404 ou corrompido)."
+            echo "Verifique sua conexão ou a URL: $URL"
             rm "$DATA_DIR/$FILE"
         fi
     else
