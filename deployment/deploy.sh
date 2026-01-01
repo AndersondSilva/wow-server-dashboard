@@ -1,62 +1,26 @@
 #!/bin/bash
 
-set -e
+# Script de Deploy para Docker Compose (Produção)
 
 echo "=========================================="
-echo "WoW Server Dashboard - Deploy Script"
+echo "Atualizando Servidor WoW Dashboard"
 echo "=========================================="
 
-PROJECT_DIR="/var/www/wow-dashboard"
-REPO_DIR=$(pwd)
+# 1. Atualizar código fonte
+echo "--> Baixando atualizações do Git..."
+git pull
 
-if [ ! -f "$REPO_DIR/package.json" ]; then
-  echo "Erro: Execute este script do diretório raiz do projeto"
-  exit 1
-fi
+# 2. Reconstruir e reiniciar containers
+echo "--> Reconstruindo containers (Frontend e Backend)..."
+# O --build força a reconstrução das imagens para pegar as mudanças do código
+docker-compose up -d --build
 
-echo ""
-echo "Instalando dependências do frontend..."
-npm install
-
-echo ""
-echo "Instalando dependências do backend..."
-cd server
-npm install
-cd ..
-
-echo ""
-echo "Buildando frontend..."
-npm run build
-
-echo ""
-echo "Copiando arquivos para $PROJECT_DIR..."
-sudo mkdir -p $PROJECT_DIR
-sudo cp -r dist/* $PROJECT_DIR/
-sudo cp -r server $PROJECT_DIR/
-sudo cp package.json $PROJECT_DIR/
-
-sudo chown -R www-data:www-data $PROJECT_DIR
-sudo chmod -R 755 $PROJECT_DIR
-
-echo ""
-echo "Configurando PM2..."
-cd $PROJECT_DIR/server
-
-pm2 delete wow-api 2>/dev/null || true
-
-pm2 start index.js --name wow-api --time --log /var/log/pm2-wow-api.log
-
-pm2 save
-pm2 startup systemd -u $USER --hp $HOME
+# 3. Limpeza opcional de imagens antigas para economizar espaço
+echo "--> Limpando imagens antigas..."
+docker image prune -f
 
 echo ""
 echo "=========================================="
-echo "Deploy concluído com sucesso!"
+echo "Atualização concluída!"
+echo "Acesse: http://192.168.1.86"
 echo "=========================================="
-echo ""
-echo "Comandos úteis:"
-echo "  pm2 status          - Ver status do servidor"
-echo "  pm2 logs wow-api    - Ver logs em tempo real"
-echo "  pm2 restart wow-api - Reiniciar servidor"
-echo "  pm2 stop wow-api    - Parar servidor"
-echo ""
