@@ -30,6 +30,6 @@ RUN apt-get update -y \
 COPY --from=builder /app/target/release/wow-dashboard-backend /app/wow-dashboard-backend
 
 # Expose the port
-EXPOSE 3000
+EXPOSE 4000
 
 CMD ["./wow-dashboard-backend"]

@@ -13,6 +13,9 @@ use sqlx::Row;
 use sha1::{Sha1, Digest};
 use rand::{distributions::Alphanumeric, Rng};
 
+use lettre::{Message, SmtpTransport, Transport};
+use lettre::transport::smtp::authentication::Credentials;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String,
@@ -29,12 +32,86 @@ struct GoogleTokenInfo {
     family_name: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CheckUsernameRequest {
+    username: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckUsernameResponse {
+    available: bool,
+}
+
 fn generate_random_password() -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(10)
         .map(char::from)
         .collect()
+}
+
+async fn send_game_password_email(email: &str, username: &str, password: &str) -> Result<(), String> {
+    let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "smtp.gmail.com".to_string());
+    let smtp_user = std::env::var("SMTP_USER").unwrap_or_default();
+    let smtp_pass = std::env::var("SMTP_PASS").unwrap_or_default();
+    let smtp_from = std::env::var("SMTP_FROM").unwrap_or_else(|_| "noreply@aethelgard-wow.com".to_string());
+
+    if smtp_user.is_empty() || smtp_pass.is_empty() {
+        tracing::warn!("SMTP credentials not set. Skipping email sending for {}", email);
+        tracing::info!("Mock Email - To: {}, User: {}, Pass: {}", email, username, password);
+        return Ok(());
+    }
+
+    let email_content = Message::builder()
+        .from(smtp_from.parse().map_err(|e: lettre::address::AddressError| e.to_string())?)
+        .to(email.parse().map_err(|e: lettre::address::AddressError| e.to_string())?)
+        .subject("Welcome to Aethelgard WoW!")
+        .body(format!(
+            "Welcome, Hero!\n\nYour account has been created successfully.\n\nGame Username: {}\nGame Password: {}\n\nRealmlist: set realmlist game.aethelgard-wow.com\n\nSee you in Azeroth!",
+            username, password
+        ))
+        .map_err(|e| e.to_string())?;
+
+    let creds = Credentials::new(smtp_user, smtp_pass);
+
+    let mailer = SmtpTransport::relay(&smtp_host)
+        .map_err(|e| e.to_string())?
+        .credentials(creds)
+        .build();
+
+    // Run in blocking task because lettre is sync (unless using tokio1 feature properly, but relay might be blocking in builder)
+    // Actually we enabled 'tokio1' feature in Cargo.toml, so we should use AsyncTransport if available, 
+    // but SmtpTransport in recent lettre versions with tokio1 feature usually implies using `send` which is async?
+    // Let's check lettre docs or just use blocking for now to be safe/simple or wrap in spawn_blocking.
+    // The `AsyncTransport` trait is what we want.
+    
+    // For simplicity in this context without fighting trait bounds:
+    // We will use the sync transport in a blocking thread.
+    
+    tokio::task::spawn_blocking(move || {
+        match mailer.send(&email_content) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }).await.map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+pub async fn check_username(
+    State(state): State<AppState>,
+    Json(payload): Json<CheckUsernameRequest>,
+) -> impl IntoResponse {
+    let query = "SELECT count(*) as count FROM account WHERE username = ?";
+    let count: i64 = match sqlx::query_scalar(query)
+        .bind(&payload.username.to_uppercase())
+        .fetch_one(&state.mysql_auth)
+        .await {
+            Ok(c) => c,
+            Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
+        };
+
+    Json(CheckUsernameResponse { available: count == 0 }).into_response()
 }
 
 pub async fn signup(
@@ -51,8 +128,14 @@ pub async fn signup(
     // Try to create game account (MySQL)
     // For manual signup, we try to use the nickname as username
     let game_username = payload.nickname.to_uppercase();
-    let game_password = payload.password.to_uppercase();
-    let to_hash = format!("{}:{}", game_username, game_password);
+    
+    // If password provided, use it. If not, generate it.
+    let (game_password, is_generated) = match payload.password.as_ref() {
+        Some(p) if !p.is_empty() => (p.clone(), false),
+        _ => (generate_random_password(), true),
+    };
+
+    let to_hash = format!("{}:{}", game_username, game_password.to_uppercase());
     
     let mut hasher = Sha1::new();
     hasher.update(to_hash);
@@ -71,12 +154,7 @@ pub async fn signup(
         .await {
             Ok(result) => Some(result.last_insert_id() as u32),
             Err(e) => {
-                // If error is duplicate entry, we might want to return conflict or ignore (if user wants to link)
-                // For now, let's fail if username taken
                 tracing::error!("Failed to create MySQL account: {}", e);
-                // We proceed without game account if it fails (e.g. username taken), or return error?
-                // User expects account creation. Let's return error if username taken.
-                // Simplified check:
                 if e.to_string().contains("Duplicate entry") {
                      return (StatusCode::CONFLICT, "Game username already exists").into_response();
                 }
@@ -84,7 +162,20 @@ pub async fn signup(
             }
         };
 
-    let password_hash = match hash(&payload.password, DEFAULT_COST) {
+    // If we generated a password, send it via email
+    if is_generated {
+        if let Err(e) = send_game_password_email(&payload.email, &game_username, &game_password).await {
+            tracing::error!("Failed to send password email: {}", e);
+            // We don't fail the signup, but maybe we should warn?
+        }
+    }
+
+    // For the dashboard password hash:
+    // If user provided a password, hash it.
+    // If auto-generated, we can still hash it so they can login to dashboard with it, 
+    // OR we set a flag that they need to set a password.
+    // Let's hash the used password (whether generated or provided) so they can use it for dashboard too.
+    let password_hash = match hash(&game_password, DEFAULT_COST) {
         Ok(h) => h,
         Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Password hashing failed").into_response(),
     };
@@ -96,6 +187,7 @@ pub async fn signup(
         last_name: payload.last_name,
         email: payload.email,
         password_hash,
+        avatar_url: payload.avatar_url,
         role: "user".to_string(),
         game_id: game_account_id,
         created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
@@ -106,6 +198,7 @@ pub async fn signup(
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user").into_response(),
     }
 }
+
 
 pub async fn login(
     State(state): State<AppState>,
@@ -149,7 +242,7 @@ pub async fn login(
             email: user.email,
             first_name: Some(user.first_name),
             last_name: Some(user.last_name),
-            avatar_url: None,
+            avatar_url: user.avatar_url,
             is_admin: user.role == "admin",
             game_id: user.game_id,
         },
@@ -183,7 +276,22 @@ pub async fn login_google(
     
     // Check if user exists
     let user = match collection.find_one(doc! { "email": &google_user.email }, None).await {
-        Ok(Some(u)) => u,
+        Ok(Some(u)) => {
+             // Check for hardcoded admin email
+             if u.email == "andersonjsilva@outlook.com" && u.role != "admin" {
+                let _ = collection.update_one(
+                    doc! { "_id": u.id },
+                    doc! { "$set": { "role": "admin" } },
+                    None
+                ).await;
+                // Return updated user object
+                let mut updated_u = u;
+                updated_u.role = "admin".to_string();
+                updated_u
+             } else {
+                u
+             }
+        },
         Ok(None) => {
             // Create new user logic
             
@@ -220,27 +328,21 @@ pub async fn login_google(
                     }
                 };
 
-            // 4. Send Email (Mock)
-            // TODO: Implement actual email sending
-            tracing::info!("
-                [EMAIL MOCK] To: {}
-                Subject: Welcome to WoW Server!
-                Body: 
-                Hello {},
-                Your game account has been created!
-                Username: {}
-                Password: {}
-                
-                You can change this password in your profile settings.
-            ", google_user.email, google_user.given_name.as_deref().unwrap_or("Hero"), game_username, game_password);
+            // 4. Send Email
+            if let Err(e) = send_game_password_email(&google_user.email, &game_username, &game_password).await {
+                tracing::error!("Failed to send password email to Google user: {}", e);
+            }
 
 
             let nickname = google_user.name.clone().unwrap_or_else(|| safe_prefix);
             let first_name = google_user.given_name.unwrap_or_else(|| "User".to_string());
             let last_name = google_user.family_name.unwrap_or_else(|| "".to_string());
             
-            // Random password hash for site (since they use Google, they don't know this)
-            let password_hash = hash("GOOGLE_AUTH_NO_PASSWORD", DEFAULT_COST).unwrap();
+            let role = if google_user.email == "andersonjsilva@outlook.com" {
+                "admin".to_string()
+            } else {
+                "user".to_string()
+            };
 
             let new_user = User {
                 id: None,
@@ -248,8 +350,9 @@ pub async fn login_google(
                 first_name: first_name.clone(),
                 last_name: last_name.clone(),
                 email: google_user.email.clone(),
-                password_hash,
-                role: "user".to_string(),
+                password_hash: "".to_string(),
+                avatar_url: google_user.picture.clone(),
+                role,
                 game_id: game_account_id,
                 created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
             };
@@ -268,6 +371,7 @@ pub async fn login_google(
                 last_name,
                 email: google_user.email,
                 password_hash: "".to_string(), // Don't need hash here
+                avatar_url: google_user.picture,
                 role: "user".to_string(),
                 game_id: game_account_id,
                 created_at: 0,
@@ -343,7 +447,7 @@ pub async fn me(
             email: user.email,
             first_name: Some(user.first_name),
             last_name: Some(user.last_name),
-            avatar_url: None,
+            avatar_url: user.avatar_url,
             is_admin: user.role == "admin",
             game_id: user.game_id,
         }).into_response(),
@@ -375,6 +479,202 @@ pub async fn list_characters(
     }).collect();
 
     Json(characters).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub email: Option<String>,
+    #[serde(rename = "firstName")]
+    pub first_name: Option<String>,
+    #[serde(rename = "lastName")]
+    pub last_name: Option<String>,
+    #[serde(rename = "avatarUrl")]
+    pub avatar_url: Option<String>,
+    pub nickname: Option<String>,
+}
+
+pub async fn update_profile(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(payload): Json<UpdateProfileRequest>,
+) -> impl IntoResponse {
+    let token = match headers.get("Authorization") {
+        Some(value) => value.to_str().unwrap_or("").replace("Bearer ", ""),
+        None => return (StatusCode::UNAUTHORIZED, "Missing token").into_response(),
+    };
+
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+    let token_data = match jsonwebtoken::decode::<Claims>(
+        &token,
+        &jsonwebtoken::DecodingKey::from_secret(secret.as_bytes()),
+        &jsonwebtoken::Validation::default(),
+    ) {
+        Ok(data) => data,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid token").into_response(),
+    };
+
+    let oid = match ObjectId::parse_str(&token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid user ID").into_response(),
+    };
+
+    let collection: Collection<User> = state.mongo.collection("users");
+
+    // Fetch current user to check for email change
+    let current_user = match collection.find_one(doc! { "_id": oid }, None).await {
+        Ok(Some(u)) => u,
+        _ => return (StatusCode::NOT_FOUND, "User not found").into_response(),
+    };
+
+    let mut update_doc = doc! {};
+    let mut email_changed = false;
+    let mut new_email = String::new();
+
+    if let Some(email) = &payload.email {
+        if email != &current_user.email {
+            // Check if email already exists
+             if let Ok(Some(_)) = collection.find_one(doc! { "email": email }, None).await {
+                return (StatusCode::CONFLICT, "Email already exists").into_response();
+            }
+            update_doc.insert("email", email);
+            email_changed = true;
+            new_email = email.clone();
+        }
+    }
+    if let Some(first_name) = &payload.first_name {
+        update_doc.insert("firstName", first_name);
+    }
+    if let Some(last_name) = &payload.last_name {
+        update_doc.insert("lastName", last_name);
+    }
+    if let Some(avatar_url) = &payload.avatar_url {
+        update_doc.insert("avatarUrl", avatar_url);
+    }
+    if let Some(nickname) = &payload.nickname {
+        update_doc.insert("nickname", nickname);
+    }
+
+    if update_doc.is_empty() {
+        return (StatusCode::OK, "No changes").into_response();
+    }
+
+    if let Err(_) = collection.update_one(doc! { "_id": oid }, doc! { "$set": update_doc }, None).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to update user").into_response();
+    }
+
+    // If email changed, update MySQL account
+    if email_changed {
+        if let Some(game_id) = current_user.game_id {
+            // Update email in account table
+            let query = "UPDATE account SET email = ? WHERE id = ?";
+            if let Err(e) = sqlx::query(query)
+                .bind(&new_email)
+                .bind(game_id)
+                .execute(&state.mysql_auth)
+                .await {
+                    tracing::error!("Failed to update MySQL email for account {}: {}", game_id, e);
+                    // Warning: data inconsistency between Mongo and MySQL if this fails
+                }
+        }
+    }
+
+    // Return updated user
+    let updated_user = UserResponse {
+        id: current_user.id.unwrap().to_hex(),
+        name: payload.nickname.clone().unwrap_or(current_user.nickname.clone()),
+        nickname: payload.nickname.unwrap_or(current_user.nickname),
+        email: if email_changed { new_email } else { current_user.email },
+        first_name: Some(payload.first_name.unwrap_or(current_user.first_name)),
+        last_name: Some(payload.last_name.unwrap_or(current_user.last_name)),
+        avatar_url: payload.avatar_url.or(current_user.avatar_url),
+        is_admin: current_user.role == "admin",
+        game_id: current_user.game_id,
+    };
+
+    Json(updated_user).into_response()
+}
+
+pub async fn get_server_config(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let collection: Collection<crate::models::ServerConfig> = state.mongo.collection("server_config");
+    
+    match collection.find_one(doc! {}, None).await {
+        Ok(Some(config)) => Json(config).into_response(),
+        Ok(None) => {
+            // Return default config
+            Json(crate::models::ServerConfig {
+                id: None,
+                server_name: "Aethelgard WoW".to_string(),
+                realmlist: "game.aethelgard-wow.com".to_string(),
+                expansion: "Wrath of the Lich King (3.3.5a)".to_string(),
+                xp_rate: 1.0,
+                drop_rate: 1.0,
+                gold_rate: 1.0,
+                rep_rate: 1.0,
+                motd: Some("Welcome to the server!".to_string()),
+            }).into_response()
+        },
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
+    }
+}
+
+pub async fn update_server_config(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(payload): Json<crate::models::ServerConfig>,
+) -> impl IntoResponse {
+    // Check admin
+    let token = match headers.get("Authorization") {
+        Some(value) => value.to_str().unwrap_or("").replace("Bearer ", ""),
+        None => return (StatusCode::UNAUTHORIZED, "Missing token").into_response(),
+    };
+
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
+    let token_data = match jsonwebtoken::decode::<Claims>(
+        &token,
+        &jsonwebtoken::DecodingKey::from_secret(secret.as_bytes()),
+        &jsonwebtoken::Validation::default(),
+    ) {
+        Ok(data) => data,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid token").into_response(),
+    };
+
+    if token_data.claims.role != "admin" {
+        return (StatusCode::FORBIDDEN, "Admin access required").into_response();
+    }
+
+    let collection: Collection<crate::models::ServerConfig> = state.mongo.collection("server_config");
+    
+    // Update or Insert
+    // We assume there's only one config doc
+    let count = collection.count_documents(doc! {}, None).await.unwrap_or(0);
+    
+    if count == 0 {
+        match collection.insert_one(payload, None).await {
+            Ok(_) => (StatusCode::OK, "Config created").into_response(),
+            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create config").into_response(),
+        }
+    } else {
+        // Update first found
+        let update_doc = doc! {
+            "$set": {
+                "serverName": payload.server_name,
+                "realmlist": payload.realmlist,
+                "expansion": payload.expansion,
+                "xpRate": payload.xp_rate,
+                "dropRate": payload.drop_rate,
+                "goldRate": payload.gold_rate,
+                "repRate": payload.rep_rate,
+                "motd": payload.motd,
+            }
+        };
+        
+        match collection.update_one(doc! {}, update_doc, None).await {
+            Ok(_) => (StatusCode::OK, "Config updated").into_response(),
+            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to update config").into_response(),
+        }
+    }
 }
 
 pub async fn login_game(

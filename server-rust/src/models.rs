@@ -12,6 +12,8 @@ pub struct User {
     pub last_name: String,
     pub email: String,
     pub password_hash: String,
+    #[serde(rename = "avatarUrl", skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
     #[serde(default)]
     pub role: String, // "user", "admin"
     #[serde(rename = "gameId", skip_serializing_if = "Option::is_none")]
@@ -28,7 +30,7 @@ pub struct CreateUserRequest {
     #[serde(rename = "lastName")]
     pub last_name: String,
     pub email: String,
-    pub password: String,
+    pub password: Option<String>,
     #[serde(rename = "avatarUrl")]
     pub avatar_url: Option<String>,
 }
@@ -72,4 +74,23 @@ pub struct UserResponse {
     pub is_admin: bool,
     #[serde(rename = "gameId", skip_serializing_if = "Option::is_none")]
     pub game_id: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerConfig {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    #[serde(rename = "serverName")]
+    pub server_name: String,
+    pub realmlist: String,
+    pub expansion: String,
+    #[serde(rename = "xpRate")]
+    pub xp_rate: f64,
+    #[serde(rename = "dropRate")]
+    pub drop_rate: f64,
+    #[serde(rename = "goldRate")]
+    pub gold_rate: f64,
+    #[serde(rename = "repRate")]
+    pub rep_rate: f64,
+    pub motd: Option<String>,
 }

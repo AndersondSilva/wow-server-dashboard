@@ -26,12 +26,6 @@ const DownloadsPage: React.FC = () => {
         >
           <Download size={16} /> {t('downloads.download_client')}
         </a>
-        <a
-          href="#instrucoes"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-        >
-          <Info size={16} /> {t('downloads.view_instructions')}
-        </a>
       </div>
 
       <motion.div
@@ -43,7 +37,7 @@ const DownloadsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 shadow">
           <div className="flex items-center gap-2 mb-3">
             <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/microsoft.svg" alt="Microsoft" className="w-5 h-5" />
-            <h3 className="font-semibold">{t('downloads.windows.title')}</h3>
+            <h3 className="font-semibold">Instruções Windows</h3>
           </div>
           <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
             <li>{t('downloads.windows.step1')}</li>
@@ -56,7 +50,7 @@ const DownloadsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 shadow">
           <div className="flex items-center gap-2 mb-3">
             <Apple size={18} />
-            <h3 className="font-semibold">{t('downloads.macos.title')}</h3>
+            <h3 className="font-semibold">Instruções MacOS</h3>
           </div>
           <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
             <li>{t('downloads.macos.step1')}</li>
@@ -69,7 +63,7 @@ const DownloadsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 shadow">
           <div className="flex items-center gap-2 mb-3">
             <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/linux.svg" alt="Linux" className="w-5 h-5" />
-            <h3 className="font-semibold">{t('downloads.linux.title')}</h3>
+            <h3 className="font-semibold">Instruções Linux</h3>
           </div>
           <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
             <li>{t('downloads.linux.step1')}</li>
@@ -87,9 +81,6 @@ const DownloadsPage: React.FC = () => {
         </div>
         <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t('downloads.realmlist.path')}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-lg bg-gray-100 dark:bg-gray-900 p-3 text-xs text-gray-800 dark:text-gray-200">
-            <code>set realmlist 188.80.231.211</code>
-          </div>
           <div className="rounded-lg bg-gray-100 dark:bg-gray-900 p-3 text-xs text-gray-800 dark:text-gray-200">
             <code>set realmlist game.aethelgard-wow.com</code>
           </div>

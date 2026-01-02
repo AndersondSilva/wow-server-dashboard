@@ -10,6 +10,16 @@ export async function signup(payload: { nickname: string; firstName: string; las
   return res.json();
 }
 
+export async function checkUsername(username: string) {
+  const res = await fetch(`${API_URL}/api/auth/check-username`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function login(email: string, password: string) {
   const res = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
@@ -33,6 +43,19 @@ export async function loginWithGoogle(token: string) {
 export async function me(token: string) {
   const res = await fetch(`${API_URL}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateProfile(token: string, payload: { email?: string; firstName?: string; lastName?: string; avatarUrl?: string }) {
+  const res = await fetch(`${API_URL}/api/auth/profile`, {
+    method: 'PUT',
+    headers: { 
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}` 
+    },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();

@@ -9,7 +9,7 @@ const classIdToName = (id: number): Character['class'] => {
         3: 'Hunter',
         4: 'Rogue',
         5: 'Priest',
-        6: 'Warlock', // alguns cores usam 6 como DK, ajustaremos se necessário
+        6: 'Death Knight',
         7: 'Shaman',
         8: 'Mage',
         9: 'Warlock',
@@ -25,19 +25,41 @@ const users: User[] = [
     { id: 'u4', name: 'Diana Perez', nickname: 'Leafsong', firstName: 'Diana', lastName: 'Perez', avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=DruidFemale1&size=64', discordHandle: 'Diana#3456' },
 ];
 
+const getClassIconUrl = (cls: string): string => {
+    // High-quality class wallpapers/art
+    const map: Record<string, string> = {
+        'warrior': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/37/3709087093282247290.jpg',
+        'paladin': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/55/5579309100742247293.jpg',
+        'hunter': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/23/2369098093932247291.jpg',
+        'rogue': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/45/4569106096532247294.jpg',
+        'priest': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/66/6689108098842247294.jpg',
+        'deathknight': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/88/8899119101162247297.jpg',
+        'shaman': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/77/7799117103472247296.jpg',
+        'mage': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/11/1159085090682247289.jpg',
+        'warlock': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/99/9909121105792247298.jpg',
+        'druid': 'https://bnetcmsus-a.akamaihd.net/cms/content_entry_media/00/0049082087432247288.jpg',
+    };
+
+    const slug = cls.toLowerCase().replace(/\s+/g, '');
+    let key = slug;
+    if (slug === 'deathknight' || slug === 'death_knight') key = 'deathknight';
+    
+    return map[key] || `https://render.worldofwarcraft.com/us/icons/56/class_${slug}.jpg`;
+};
+
 // FIX: Separated array creation and sorting to ensure correct type inference for the 'class' property.
 // The original one-liner caused TypeScript to widen the type of 'class' to 'string' before type checking against the `Character` interface.
 const characters: Character[] = [
-    { id: 'c1', userId: 'u1', name: 'Grommash', class: 'Warrior', level: 60, currentXp: 120500, xpToNextLevel: 150000, gameProgress: 95, imageUrl: 'https://picsum.photos/seed/char1/400/600' },
-    { id: 'c2', userId: 'u2', name: 'Jaina', class: 'Mage', level: 58, currentXp: 85000, xpToNextLevel: 140000, gameProgress: 92, imageUrl: 'https://picsum.photos/seed/char2/400/600' },
-    { id: 'c3', userId: 'u3', name: 'Valeera', class: 'Rogue', level: 59, currentXp: 135000, xpToNextLevel: 145000, gameProgress: 94, imageUrl: 'https://picsum.photos/seed/char3/400/600' },
-    { id: 'c4', userId: 'u1', name: 'Rexxar', class: 'Hunter', level: 55, currentXp: 50000, xpToNextLevel: 120000, gameProgress: 85, imageUrl: 'https://picsum.photos/seed/char4/400/600' },
-    { id: 'c5', userId: 'u4', name: 'Anduin', class: 'Priest', level: 56, currentXp: 75000, xpToNextLevel: 125000, gameProgress: 88, imageUrl: 'https://picsum.photos/seed/char5/400/600' },
-    { id: 'c6', userId: 'u2', name: 'Malfurion', class: 'Druid', level: 57, currentXp: 92000, xpToNextLevel: 130000, gameProgress: 90, imageUrl: 'https://picsum.photos/seed/char6/400/600' },
-    { id: 'c7', userId: 'u3', name: 'Guldan', class: 'Warlock', level: 54, currentXp: 40000, xpToNextLevel: 115000, gameProgress: 82, imageUrl: 'https://picsum.photos/seed/char7/400/600' },
-    { id: 'c8', userId: 'u4', name: 'Uther', class: 'Paladin', level: 58, currentXp: 110000, xpToNextLevel: 140000, gameProgress: 91, imageUrl: 'https://picsum.photos/seed/char8/400/600' },
-    { id: 'c9', userId: 'u1', name: 'Thrall', class: 'Shaman', level: 60, currentXp: 145000, xpToNextLevel: 150000, gameProgress: 98, imageUrl: 'https://picsum.photos/seed/char9/400/600' },
-    { id: 'c10', userId: 'u2', name: 'Sylvanas', class: 'Hunter', level: 60, currentXp: 148000, xpToNextLevel: 150000, gameProgress: 99, imageUrl: 'https://picsum.photos/seed/char10/400/600' },
+    { id: 'c1', userId: 'u1', name: 'Grommash', class: 'Warrior', level: 60, currentXp: 120500, xpToNextLevel: 150000, gameProgress: 95, imageUrl: getClassIconUrl('Warrior') },
+    { id: 'c2', userId: 'u2', name: 'Jaina', class: 'Mage', level: 58, currentXp: 85000, xpToNextLevel: 140000, gameProgress: 92, imageUrl: getClassIconUrl('Mage') },
+    { id: 'c3', userId: 'u3', name: 'Valeera', class: 'Rogue', level: 59, currentXp: 135000, xpToNextLevel: 145000, gameProgress: 94, imageUrl: getClassIconUrl('Rogue') },
+    { id: 'c4', userId: 'u1', name: 'Rexxar', class: 'Hunter', level: 55, currentXp: 50000, xpToNextLevel: 120000, gameProgress: 85, imageUrl: getClassIconUrl('Hunter') },
+    { id: 'c5', userId: 'u4', name: 'Anduin', class: 'Priest', level: 56, currentXp: 75000, xpToNextLevel: 125000, gameProgress: 88, imageUrl: getClassIconUrl('Priest') },
+    { id: 'c6', userId: 'u2', name: 'Malfurion', class: 'Druid', level: 57, currentXp: 92000, xpToNextLevel: 130000, gameProgress: 90, imageUrl: getClassIconUrl('Druid') },
+    { id: 'c7', userId: 'u3', name: 'Guldan', class: 'Warlock', level: 54, currentXp: 40000, xpToNextLevel: 115000, gameProgress: 82, imageUrl: getClassIconUrl('Warlock') },
+    { id: 'c8', userId: 'u4', name: 'Uther', class: 'Paladin', level: 58, currentXp: 110000, xpToNextLevel: 140000, gameProgress: 91, imageUrl: getClassIconUrl('Paladin') },
+    { id: 'c9', userId: 'u1', name: 'Thrall', class: 'Shaman', level: 60, currentXp: 145000, xpToNextLevel: 150000, gameProgress: 98, imageUrl: getClassIconUrl('Shaman') },
+    { id: 'c10', userId: 'u2', name: 'Sylvanas', class: 'Hunter', level: 60, currentXp: 148000, xpToNextLevel: 150000, gameProgress: 99, imageUrl: getClassIconUrl('Hunter') },
 ];
 characters.sort((a, b) => b.gameProgress - a.gameProgress);
 
@@ -55,6 +77,11 @@ export const getTopCharacters = (count = 10): Promise<Character[]> => {
             .then(async (res) => {
                 if (!res.ok) throw new Error('API ranking request failed');
                 const rows = await res.json();
+                
+                if (rows.length === 0) {
+                     return [];
+                }
+
                 const mapped: Character[] = rows.map((r: any, idx: number) => {
                     const level = Number(r.level) || 1;
                     const clsId = Number(r.class);
@@ -72,7 +99,7 @@ export const getTopCharacters = (count = 10): Promise<Character[]> => {
                         currentXp: 0,
                         xpToNextLevel: 1,
                         gameProgress: Math.max(0, Math.min(100, Math.round((level / 60) * 100))),
-                        imageUrl: uploadedImage || `https://picsum.photos/seed/${encodeURIComponent(name)}/400/600`,
+                        imageUrl: uploadedImage || getClassIconUrl(clsName),
                     };
                 });
                 return mapped;
@@ -80,14 +107,14 @@ export const getTopCharacters = (count = 10): Promise<Character[]> => {
             .catch(() => {
                 return new Promise(resolve => {
                     setTimeout(() => {
-                        resolve(characters.slice(0, count));
+                        resolve([]);
                     }, MOCK_API_DELAY);
                 });
             });
     }
     return new Promise(resolve => {
         setTimeout(() => {
-            resolve(characters.slice(0, count));
+            resolve([]);
         }, MOCK_API_DELAY);
     });
 };

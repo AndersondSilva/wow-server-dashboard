@@ -177,19 +177,6 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView }) => {
           </div>
           <div className="px-4 py-4 space-y-4 text-sm text-gray-700 dark:text-gray-300">
             <div className="space-y-2">
-              <label className="block text-xs font-medium">{t('settings.avatar.label')}</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="url"
-                  className="flex-1 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
-                  placeholder="https://..."
-                  value={avatarUrlInput}
-                  onChange={(e) => setAvatarUrlInput(e.target.value)}
-                />
-                <button onClick={saveAvatar} className="text-xs px-3 py-1 rounded bg-blue-600 text-white">{t('action.save')}</button>
-              </div>
-            </div>
-            <div className="space-y-2">
               <label className="block text-xs font-medium">{t('settings.email.label')}</label>
               <div className="flex items-center gap-2">
                 <input
@@ -229,9 +216,28 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView }) => {
                 </select>
               </div>
             </div>
+
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+              <h3 className="text-sm font-semibold mb-2">Feedback</h3>
+              <p className="text-xs text-gray-500 mb-2">Tem alguma ideia ou sugestão para o servidor? Conte para nós!</p>
+              <textarea 
+                className="w-full h-20 text-xs px-2 py-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 resize-none"
+                placeholder="Sua mensagem..."
+              ></textarea>
+              <div className="flex justify-end mt-2">
+                <button 
+                  onClick={() => alert('Obrigado pelo seu feedback! (Funcionalidade em breve)')}
+                  className="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700"
+                >
+                  Enviar
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-            <button onClick={() => setShowSettings(false)} className="px-3 py-2 text-sm rounded bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">{t('action.close')}</button>
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
+            <button onClick={() => setShowSettings(false)} className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors">
+              {t('action.close')}
+            </button>
           </div>
         </div>
       </div>

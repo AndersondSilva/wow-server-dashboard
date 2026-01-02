@@ -41,9 +41,11 @@ services:
       dockerfile: Dockerfile
     container_name: wow-dashboard-backend
     restart: unless-stopped
+    ports:
+      - "4000:4000"
     environment:
       - RUST_LOG=info
-      - PORT=3000
+      - PORT=4000
       - MONGODB_URI=mongodb://mongo:27017/wow-dashboard
       - JWT_SECRET=${JWT_SECRET:-change_this_secret_in_prod}
       # Google Auth ID from .env

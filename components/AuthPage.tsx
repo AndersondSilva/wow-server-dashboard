@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, UserPlus, HelpCircle, User, IdCard, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, UserPlus, HelpCircle, User, IdCard, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { loginGame as loginGameApi, signup as signupApi, login as loginEmailApi, loginWithGoogle } from '../services/authService';
+import { loginGame as loginGameApi, signup as signupApi, login as loginEmailApi, loginWithGoogle, checkUsername as checkUsernameApi } from '../services/authService';
 import { GoogleLogin } from '@react-oauth/google';
 import type { View } from '../App';
 import { useI18n } from '../context/I18nContext';
@@ -24,35 +24,49 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
   const { t } = useI18n();
   const [active, setActive] = useState<AuthTab>('login');
   const { login, user } = useAuth();
-  const [loginMode, setLoginMode] = useState<'game' | 'site'>('game');
+  
+  // Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  
+  // Signup State
   const [nickname, setNickname] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const avatarOptions = [
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=WarriorMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=WarriorFemale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=MageMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=MageFemale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=ArcherMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=ArcherFemale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=ElfMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=ElfFemale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=DruidMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=DruidFemale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=HunterMale1&size=64',
-    'https://api.dicebear.com/7.x/adventurer/svg?seed=HunterFemale1&size=64',
-  ];
-  const [avatarUrl, setAvatarUrl] = useState(avatarOptions[0]);
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirm, setSignupConfirm] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+
+  // Forgot Password State
+  const [forgotSent, setForgotSent] = useState(false);
+
+  // General State
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (nickname.length > 2) {
+        setCheckingUsername(true);
+        try {
+          const res = await checkUsernameApi(nickname);
+          setUsernameAvailable(res.available);
+        } catch (e) {
+          console.error(e);
+          setUsernameAvailable(null);
+        } finally {
+          setCheckingUsername(false);
+        }
+      } else {
+        setUsernameAvailable(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [nickname]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setLoading(true);
@@ -75,14 +89,10 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
       </h2>
 
       <div className="flex gap-2 justify-center mb-6">
-        {([
-          { key: 'login', label: t('auth.tabs.login'), icon: <Lock size={16} /> },
-          { key: 'signup', label: t('auth.tabs.signup'), icon: <UserPlus size={16} /> },
-          { key: 'forgot', label: t('auth.tabs.forgot'), icon: <HelpCircle size={16} /> },
-        ] as { key: AuthTab; label: string; icon: React.ReactNode }[]).map((tab) => (
+        {(tabs).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActive(tab.key)}
+            onClick={() => { setActive(tab.key); setError(null); setForgotSent(false); }}
             className={`inline-flex items-center gap-1 px-3 py-2 rounded-full text-sm transition-colors border
               ${active === tab.key ? 'bg-brand-primary text-brand-secondary border-brand-primary' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
           >
@@ -111,9 +121,10 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
                 setLoading(true);
                 setError(null);
                 try {
-                  const res = loginMode === 'game'
-                    ? await loginGameApi(email, password)
-                    : await loginEmailApi(email, password);
+                  const isEmail = email.includes('@');
+                  const res = isEmail
+                    ? await loginEmailApi(email, password)
+                    : await loginGameApi(email, password);
                   login(res.token, res.user);
                   setActiveView?.('community');
                 } catch (err: any) {
@@ -123,32 +134,15 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
                 }
               }}
             >
-              {/* Toggle de modo de login */}
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setLoginMode('game')}
-                  className={`px-3 py-1 rounded-full text-xs border ${loginMode === 'game' ? 'bg-brand-primary text-brand-secondary border-brand-primary' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
-                >
-                  Entrar com conta do jogo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginMode('site')}
-                  className={`px-3 py-1 rounded-full text-xs border ${loginMode === 'site' ? 'bg-brand-primary text-brand-secondary border-brand-primary' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
-                >
-                  Entrar com e-mail (site)
-                </button>
-              </div>
               <div>
-                <label className="block text-sm mb-1">{t('auth.email')}</label>
+                <label className="block text-sm mb-1">{t('auth.email')} ou Usuário</label>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                  <Mail size={16} className="text-gray-500" />
+                  <User size={16} className="text-gray-500" />
                   <input
-                    type={loginMode === 'site' ? 'email' : 'text'}
+                    type="text"
                     required
                     className="flex-1 bg-transparent outline-none text-sm"
-                    placeholder={loginMode === 'site' ? 'Seu e-mail do site' : 'Seu usuário do jogo'}
+                    placeholder="E-mail ou Usuário do jogo"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -199,7 +193,8 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
                 setLoading(true);
                 setError(null);
                 try {
-                  const res = await signupApi({ nickname, firstName, lastName, email, password: signupPassword, avatarUrl });
+                  const defaultAvatar = 'https://api.dicebear.com/7.x/adventurer/svg?seed=WarriorMale1&size=64';
+                  const res = await signupApi({ nickname, firstName, lastName, email, password: signupPassword, avatarUrl: defaultAvatar });
                   login(res.token, res.user);
                   setActiveView?.('community');
                 } catch (err: any) {
@@ -214,7 +209,15 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                   <User size={16} className="text-gray-500" />
                   <input type="text" required className="flex-1 bg-transparent outline-none text-sm" placeholder="Seu nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+                  {checkingUsername ? (
+                     <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                  ) : usernameAvailable === true ? (
+                     <span className="text-green-500 font-bold">✓</span>
+                  ) : usernameAvailable === false ? (
+                     <span className="text-red-500 font-bold">✗</span>
+                  ) : null}
                 </div>
+                {usernameAvailable === false && <p className="text-xs text-red-500 mt-1">Este nome de usuário já está em uso.</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -259,44 +262,62 @@ const AuthPage: React.FC<{ setActiveView?: (v: View) => void }> = ({ setActiveVi
                   </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm mb-2">Avatar</label>
-                <div className="grid grid-cols-6 gap-2">
-                  {avatarOptions.map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => setAvatarUrl(url)}
-                      className={`p-1 rounded border ${avatarUrl === url ? 'border-brand-primary' : 'border-transparent'} bg-gray-100 dark:bg-gray-800`}
-                    >
-                      <img src={url} alt="Avatar" className="w-10 h-10" />
-                    </button>
-                  ))}
-                </div>
-              </div>
               {error && <p className="text-red-600 text-sm">{error}</p>}
               <button type="submit" disabled={loading} className="w-full px-4 py-2 bg-brand-primary text-brand-secondary rounded-lg font-bold hover:opacity-90 disabled:opacity-60">{t('auth.signup_button')}</button>
             </motion.form>
           )}
 
           {active === 'forgot' && (
-            <motion.form
-              key="forgot"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <div>
-                <label className="block text-sm mb-1">{t('auth.email')}</label>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                  <Mail size={16} className="text-gray-500" />
-                  <input type="email" required className="flex-1 bg-transparent outline-none text-sm" placeholder="voce@exemplo.com" />
+            forgotSent ? (
+              <motion.div
+                key="forgot-success"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center justify-center py-8 text-center"
+              >
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4 text-green-600 dark:text-green-400">
+                  <CheckCircle size={32} />
                 </div>
-              </div>
-              <button type="submit" className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">{t('auth.recovery_send')}</button>
-            </motion.form>
+                <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Email Enviado!</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                  Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                </p>
+                <button 
+                  onClick={() => { setActive('login'); setForgotSent(false); }}
+                  className="px-6 py-2 bg-brand-primary text-brand-secondary rounded-lg font-semibold hover:opacity-90"
+                >
+                  Voltar para o Login
+                </button>
+              </motion.div>
+            ) : (
+              <motion.form
+                key="forgot"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  // Simulate API call
+                  setLoading(true);
+                  setTimeout(() => {
+                    setLoading(false);
+                    setForgotSent(true);
+                  }, 1000);
+                }}
+              >
+                <div>
+                  <label className="block text-sm mb-1">{t('auth.email')}</label>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <Mail size={16} className="text-gray-500" />
+                    <input type="email" required className="flex-1 bg-transparent outline-none text-sm" placeholder="voce@exemplo.com" />
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-60">
+                  {loading ? 'Enviando...' : t('auth.recovery_send')}
+                </button>
+              </motion.form>
+            )
           )}
         </AnimatePresence>
       </motion.div>

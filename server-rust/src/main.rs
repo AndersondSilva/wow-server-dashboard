@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
     extract::State,
     response::Json,
@@ -84,6 +84,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // Initialize Realmlist
+    if let Err(e) = init_realmlist(&mysql_auth_pool).await {
+        tracing::warn!("Failed to initialize realmlist: {}", e);
+    }
+
     let state = AppState {
         mongo: mongo_db,
         mysql_auth: mysql_auth_pool,
@@ -102,7 +107,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/auth/google", post(handlers::login_google))
         .route("/api/auth/login-game", post(handlers::login_game))
         .route("/api/auth/me", get(handlers::me))
+        .route("/api/auth/profile", put(handlers::update_profile))
+        .route("/api/auth/check-username", post(handlers::check_username))
         .route("/api/characters", get(handlers::list_characters))
+        .route("/api/admin/config", get(handlers::get_server_config).put(handlers::update_server_config))
         .layer(cors)
         .with_state(state);
 
@@ -119,4 +127,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok", "backend": "rust" }))
+}
+
+async fn init_realmlist(pool: &sqlx::MySqlPool) -> Result<(), sqlx::Error> {
+    tracing::info!("Initializing Realmlist...");
+    
+    // Check if realmlist exists and update, or insert if missing
+    // We set address to game.aethelgard-wow.com and port 8085
+    let rows_affected = sqlx::query("UPDATE realmlist SET address = ?, name = ?, port = 8085 WHERE id = 1")
+        .bind("game.aethelgard-wow.com")
+        .bind("Aethelgard")
+        .execute(pool)
+        .await?
+        .rows_affected();
+
+    if rows_affected == 0 {
+        tracing::info!("Realmlist id 1 not found, inserting...");
+        // Default values for other columns: icon=1, color=0, timezone=1, allowedSecurityLevel=0, population=0
+        sqlx::query("INSERT INTO realmlist (id, name, address, port, icon, color, timezone, allowedSecurityLevel, population) VALUES (1, ?, ?, 8085, 1, 0, 1, 0, 0)")
+            .bind("Aethelgard")
+            .bind("game.aethelgard-wow.com")
+            .execute(pool)
+            .await?;
+    } else {
+        tracing::info!("Realmlist updated successfully.");
+    }
+    
+    Ok(())
 }

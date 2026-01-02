@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Shield } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 import { getTopCharacters, listRecentSiteUsers, type RecentSiteUser } from '../services/databaseService';
 import type { Character } from '../types';
@@ -51,6 +52,33 @@ const RankingPage: React.FC = () => {
           >
             {characters.map((char, index) => (
               <CharacterCard key={char.id} character={char} rank={index + 1} />
+            ))}
+            {Array.from({ length: Math.max(0, 10 - characters.length) }).map((_, index) => (
+              <motion.div
+                key={`placeholder-${index}`}
+                variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-black/30 overflow-hidden opacity-60"
+              >
+                <div className="h-64 bg-gray-100 dark:bg-gray-700/50 flex flex-col items-center justify-center relative">
+                  <div className="absolute top-0 left-0 bg-gray-400 dark:bg-gray-600 text-white font-bold text-2xl px-4 py-2 rounded-br-2xl">
+                    #{characters.length + index + 1}
+                  </div>
+                  <Shield size={48} className="text-gray-300 dark:text-gray-600 mb-3" />
+                  <span className="text-gray-400 dark:text-gray-500 font-medium text-center px-4">
+                    Aguardando um Herói Poderoso
+                  </span>
+                </div>
+                <div className="p-4 space-y-4 opacity-50">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                  </div>
+                </div>
+              </motion.div>
             ))}
           </motion.div>
         )}
